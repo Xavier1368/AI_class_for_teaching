@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 偵探：分類大對決</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ai-color: #00f2fe;
+            --ai-glow: rgba(0, 242, 254, 0.6);
+            --non-ai-color: #ffb75e;
+            --non-ai-glow: rgba(255, 183, 94, 0.6);
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --text-dark: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', 'Microsoft JhengHei', sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 背景漂浮粒子 */
+        .particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: floatUp infinite linear;
+        }
+        @keyframes floatUp {
+            from { transform: translateY(100vh) scale(0); opacity: 0; }
+            50% { opacity: 1; }
+            to { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* UI 佈局 */
+        #game-ui {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 15px 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .title { font-size: 24px; font-weight: 900; letter-spacing: 2px; }
+        .score-board { display: flex; gap: 20px; font-size: 20px; font-weight: 700; }
+        .score-pill { background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 20px; }
+
+        /* 遊戲區域 */
+        .play-area {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            margin-top: 20px;
+        }
+
+        /* 收集籃 */
+        .basket {
+            width: 250px;
+            height: 350px;
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: var(--glass-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .basket::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, var(--glow-color) 0%, transparent 60%);
+            opacity: 0.1; transition: opacity 0.3s;
+        }
+
+        .basket.highlight {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px var(--glow-color);
+            border-color: var(--glow-color);
+        }
+        .basket.highlight::before { opacity: 0.4; }
+
+        #basket-ai { --glow-color: var(--ai-color); }
+        #basket-not-ai { --glow-color: var(--non-ai-color); }
+
+        .basket-icon { font-size: 60px; margin-bottom: 15px; text-shadow: 0 0 20px rgba(255,255,255,0.5); }
+        .basket-title { font-size: 28px; font-weight: 900; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+        /* 卡片區域 */
+        .card-container {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 420px;
+            perspective: 1000px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4), inset 0 0 0 4px rgba(255,255,255,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            cursor: grab;
+            touch-action: none;
+            color: var(--text-dark);
+            transition: transform 0.1s;
+            z-index: 50;
+        }
+        
+        .card:active { cursor: grabbing; }
+        .card.dragging { z-index: 100; opacity: 0.95; transition: none; }
+        .card:hover:not(.dragging) { transform: translateY(-5px); box-shadow: 0 30px 60px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.5); }
+
+        .card-icon { font-size: 120px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.1)); margin-bottom: 30px; }
+        .card-title { font-size: 32px; font-weight: 900; text-align: center; padding: 0 20px; line-height: 1.2; }
+
+        /* 入場動畫 */
+        .card.enter { animation: cardEnter 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes cardEnter {
+            0% { transform: scale(0.5) translateY(100vh) rotateZ(20deg); opacity: 0; }
+            100% { transform: scale(1) translateY(0) rotateZ(0deg); opacity: 1; }
+        }
+
+        /* 浮動視窗 (Splash & Feedback) */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .overlay.show { opacity: 1; pointer-events: all; }
+
+        .modal {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 50px 40px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            transform: scale(0.8) translateY(20px);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .overlay.show .modal { transform: scale(1) translateY(0); }
+
+        .modal-icon { font-size: 80px; margin-bottom: 20px; animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        
+        .modal h1 { font-size: 48px; font-weight: 900; margin-bottom: 20px; background: linear-gradient(to right, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .modal p { font-size: 22px; line-height: 1.6; color: #e2e8f0; margin-bottom: 40px; }
+
+        .btn {
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 26px;
+            font-weight: 900;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0, 242, 254, 0.3);
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 15px 25px rgba(0, 242, 254, 0.5); }
+        .btn:active { transform: translateY(2px); }
+
+        .btn-correct { background: linear-gradient(45deg, #11998e, #38ef7d); box-shadow: 0 10px 20px rgba(56, 239, 125, 0.3); }
+        .btn-wrong { background: linear-gradient(45deg, #cb2d3e, #ef473f); box-shadow: 0 10px 20px rgba(239, 71, 63, 0.3); }
+
+        /* 手機與平板響應式調整 */
+        @media (max-width: 900px) {
+            .play-area { flex-direction: column-reverse; justify-content: flex-end; gap: 40px; }
+            .baskets { display: flex; width: 100%; gap: 15px; }
+            .basket { width: 100%; height: 180px; }
+            .basket-icon { font-size: 40px; margin-bottom: 5px; }
+            .basket-title { font-size: 20px; }
+            .card-container { position: relative; top: 0; left: 0; transform: none; margin-top: 30px; height: 350px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景粒子 -->
+    <div class="particles" id="particles"></div>
+
+    <!-- UI 與 遊戲區 -->
+    <div id="game-ui">
+        <header>
+            <div class="title">🕵️ AI 偵探特訓</div>
+            <div class="score-board">
+                <div class="score-pill">進度: <span id="progress-text">0/10</span></div>
+                <div class="score-pill" style="color: #38ef7d;">得分: <span id="score-text">0</span></div>
+            </div>
+        </header>
+
+        <div class="play-area">
+            <div class="baskets" style="display:contents"> <!-- Responsive wrapper handle -->
+                <div class="basket" id="basket-ai">
+                    <div class="basket-icon">🌟</div>
+                    <div class="basket-title">會學習的<br>AI</div>
+                </div>
+
+                <div class="card-container" id="card-container">
+                    <!-- 動態生成卡片 -->
+                </div>
+
+                <div class="basket" id="basket-not-ai">
+                    <div class="basket-icon">⚙️</div>
+                    <div class="basket-title">照規則走的<br>科技</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 歡迎畫面 -->
+    <div class="overlay show" id="splash-screen">
+        <div class="modal">
+            <div class="modal-icon">🕵️</div>
+            <h1>分類大對決</h1>
+            <p>歡迎來到 AI 偵探總部！<br>請將中央的物品拖曳到正確的籃子。<br><br><span style="color:#00f2fe">「🌟 會從資料中學習」</span>請丟左邊<br><span style="color:#ffb75e">「⚙️ 只照固定程式運作」</span>請丟右邊</p>
+            <button class="btn" onclick="startGame()">開始鑑定</button>
+        </div>
+    </div>
+
+    <!-- 回饋畫面 -->
+    <div class="overlay" id="feedback-screen">
+        <div class="modal" id="feedback-modal" style="background: rgba(30, 41, 59, 0.95);">
+            <div class="modal-icon" id="fb-icon">✅</div>
+            <h1 id="fb-title" style="background: none; color: white;">答對了！</h1>
+            <p id="fb-desc" style="font-size: 24px;">詳細解說</p>
+            <button class="btn" id="fb-btn" onclick="nextQuestion()">下一題 ➔</button>
+        </div>
+    </div>
+
+    <!-- 結束畫面 -->
+    <div class="overlay" id="end-screen">
+        <div class="modal">
+            <div class="modal-icon">🏆</div>
+            <h1 style="background: linear-gradient(to right, #f6d365, #fda085); -webkit-background-clip: text;">特訓完成！</h1>
+            <p>恭喜你完成所有鑑定任務！<br>你總共獲得了 <span id="final-score" style="font-size: 32px; font-weight: 900; color: #38ef7d;">0</span> 分！</p>
+            <button class="btn" onclick="location.reload()">重新挑戰</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🎵 Web Audio API 引擎 (音效與背景音樂)
+        // ==========================================
+        let audioCtx;
+        let isPlayingBGM = false;
+        let nextNoteTime = 0;
+        let currentNote = 0;
+        let timerID;
+
+        // 8-bit 風格輕快琶音序列 (C大調: C4, E4, G4, C5)
+        const melody = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+        const tempo = 150; // BPM
+        const lookahead = 25.0; // 毫秒
+        const scheduleAheadTime = 0.1; // 秒
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if (!isPlayingBGM) {
+                isPlayingBGM = true;
+                nextNoteTime = audioCtx.currentTime + 0.1;
+                scheduler();
+            }
+        }
+
+        // BGM 排程器
+        function scheduler() {
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                playBGMNote(melody[currentNote], nextNoteTime);
+                nextNote();
+            }
+            timerID = setTimeout(scheduler, lookahead);
+        }
+
+        function nextNote() {
+            const secondsPerBeat = 60.0 / tempo;
+            nextNoteTime += 0.25 * secondsPerBeat; // 16分音符
+            currentNote = (currentNote + 1) % melody.length;
+        }
+
+        function playBGMNote(freq, time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle'; // 類似任天堂 8-bit 音色
+            osc.frequency.value = freq;
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(time);
+            gain.gain.setValueAtTime(0.05, time); // 音量很小，作為BGM
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+            osc.stop(time + 0.1);
+        }
+
+        // --- 音效 (SFX) ---
+        function playPop() {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playDing() { // 答對音效
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.2); // C6
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playBuzzer() { // 答錯音效
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+
+        // ==========================================
+        // 🎮 遊戲邏輯與資料
+        // ==========================================
+        const questionPool = [
+            { icon: "📱", name: "Siri<br>語音助理", isAI: true, reason: "它聽過成千上萬的聲音，學會辨識你在說什麼，還能越來越懂你！" },
+            { icon: "🧮", name: "電子計算機", isAI: false, reason: "它只會照著固定的公式算 3+5=8，完全沒有自己學習的能力喔。" },
+            { icon: "🧹", name: "舊款掃地機<br><span style='font-size:20px'>(隨機亂走)</span>", isAI: false, reason: "撞到牆才轉彎，不會記住家具位置，沒有從經驗中學習。" },
+            { icon: "🤖", name: "新款掃地機<br><span style='font-size:20px'>(聰明避障)</span>", isAI: true, reason: "它會記憶路線、自己建立家中地圖，越掃越有效率！" },
+            { icon: "🎬", name: "Netflix<br>影片推薦", isAI: true, reason: "演算法會學習你喜歡看什麼，然後精準預測你想看的新電影。" },
+            { icon: "🛗", name: "電梯按鈕", isAI: false, reason: "按3樓就去3樓，完全照寫好的程式碼走，不會思考。" },
+            { icon: "🗣️", name: "Google 翻譯", isAI: true, reason: "它從無數的人類文章中，自己找出不同語言之間轉換的規則。" },
+            { icon: "💡", name: "電燈開關", isAI: false, reason: "最單純的電子物理開關，沒有大腦也沒有資料庫。" },
+            { icon: "👤", name: "手機人臉解鎖", isAI: true, reason: "它記住了你的臉部特徵，甚至你戴眼鏡它也能從資料中學習認出你！" },
+            { icon: "🧃", name: "自動販賣機", isAI: false, reason: "投錢、按按鈕就掉飲料，完全是固定的機械規則。" },
+            { icon: "🚗", name: "自動駕駛汽車", isAI: true, reason: "透過攝影機學習路況，並能自己判斷紅綠燈與行人，非常聰明！" }
+        ];
+
+        let questions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let currentCardEl = null;
+
+        // 生成背景粒子
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for(let i=0; i<20; i++){
+                let p = document.createElement('div');
+                p.className = 'particle';
+                let size = Math.random() * 20 + 5;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.animationDuration = (Math.random() * 10 + 5) + 's';
+                p.style.animationDelay = (Math.random() * 5) + 's';
+                container.appendChild(p);
+            }
+        }
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            initAudio(); // 啟動音效與BGM
+            document.getElementById('splash-screen').classList.remove('show');
+            questions = shuffle([...questionPool]).slice(0, 10); // 取 10 題
+            currentIndex = 0;
+            score = 0;
+            updateUI();
+            spawnCard();
+        }
+
+        function updateUI() {
+            document.getElementById('progress-text').innerText = `${currentIndex} / ${questions.length}`;
+            document.getElementById('score-text').innerText = score;
+        }
+
+        function spawnCard() {
+            if (currentIndex >= questions.length) {
+                endGame();
+                return;
+            }
+
+            const item = questions[currentIndex];
+            const container = document.getElementById('card-container');
+            container.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'card enter';
+            card.innerHTML = `
+                <div class="card-icon">${item.icon}</div>
+                <div class="card-title">${item.name}</div>
+            `;
+            container.appendChild(card);
+            currentCardEl = card;
+
+            // 移除入場動畫 class，準備接收拖曳
+            setTimeout(() => card.classList.remove('enter'), 500);
+
+            setupDragAndDrop(card, item);
+        }
+
+        function setupDragAndDrop(card, item) {
+            let isDragging = false;
+            let startX, startY;
+            let currentX = 0, currentY = 0;
+
+            const aiBasket = document.getElementById('basket-ai');
+            const notAiBasket = document.getElementById('basket-not-ai');
+
+            // 支援直接點擊籃子 (輔助平板)
+            aiBasket.onclick = () => handleBasketSelect(item, true);
+            notAiBasket.onclick = () => handleBasketSelect(item, false);
+
+            card.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                playPop(); // 播放啵聲
+                card.classList.add('dragging');
+                startX = e.clientX - currentX;
+                startY = e.clientY - currentY;
+                card.setPointerCapture(e.pointerId);
+            });
+
+            card.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                currentX = e.clientX - startX;
+                currentY = e.clientY - startY;
+                
+                // 動態物理旋轉
+                let rotate = currentX * 0.05;
+                card.style.transform = `translate(${currentX}px, ${currentY}px) rotateZ(${rotate}deg)`;
+
+                // 判斷是否靠近籃子並給予發光回饋
+                const rect = card.getBoundingClientRect();
+                const aiRect = aiBasket.getBoundingClientRect();
+                const notAiRect = notAiBasket.getBoundingClientRect();
+
+                // 簡單碰撞偵測 (中心點)
+                const cardCenterX = rect.left + rect.width/2;
+                const cardCenterY = rect.top + rect.height/2;
+
+                aiBasket.classList.toggle('highlight', isInside(cardCenterX, cardCenterY, aiRect));
+                notAiBasket.classList.toggle('highlight', isInside(cardCenterX, cardCenterY, notAiRect));
+            });
+
+            card.addEventListener('pointerup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                card.classList.remove('dragging');
+                
+                const rect = card.getBoundingClientRect();
+                const cardCenterX = rect.left + rect.width/2;
+                const cardCenterY = rect.top + rect.height/2;
+
+                aiBasket.classList.remove('highlight');
+                notAiBasket.classList.remove('highlight');
+
+                if (isInside(cardCenterX, cardCenterY, aiBasket.getBoundingClientRect())) {
+                    handleBasketSelect(item, true);
+                } else if (isInside(cardCenterX, cardCenterY, notAiBasket.getBoundingClientRect())) {
+                    handleBasketSelect(item, false);
+                } else {
+                    // 彈回原位
+                    currentX = 0; currentY = 0;
+                    card.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    card.style.transform = `translate(0px, 0px) rotateZ(0deg)`;
+                    setTimeout(() => card.style.transition = 'transform 0.1s', 300); // 恢復設定
+                }
+            });
+        }
+
+        function isInside(x, y, rect) {
+            return (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+        }
+
+        function handleBasketSelect(item, userChoiceIsAI) {
+            if(!currentCardEl) return;
+            // 移除互動避免重複觸發
+            currentCardEl.style.pointerEvents = 'none';
+            document.getElementById('basket-ai').onclick = null;
+            document.getElementById('basket-not-ai').onclick = null;
+
+            const isCorrect = (item.isAI === userChoiceIsAI);
+            
+            if(isCorrect) {
+                score += 10;
+                playDing();
+            } else {
+                playBuzzer();
+            }
+            updateUI();
+            showFeedback(isCorrect, item);
+        }
+
+        function showFeedback(isCorrect, item) {
+            const overlay = document.getElementById('feedback-screen');
+            const icon = document.getElementById('fb-icon');
+            const title = document.getElementById('fb-title');
+            const desc = document.getElementById('fb-desc');
+            const btn = document.getElementById('fb-btn');
+            const modal = document.getElementById('feedback-modal');
+
+            if (isCorrect) {
+                icon.innerText = '🎉';
+                title.innerText = '完美命中！';
+                title.style.color = '#38ef7d';
+                modal.style.border = '2px solid #38ef7d';
+                btn.className = 'btn btn-correct';
+            } else {
+                icon.innerText = '🤔';
+                title.innerText = '哎呀，差一點！';
+                title.style.color = '#ef473f';
+                modal.style.border = '2px solid #ef473f';
+                btn.className = 'btn btn-wrong';
+            }
+
+            let typeText = item.isAI ? "<span style='color:var(--ai-color)'>會學習的 AI</span>" : "<span style='color:var(--non-ai-color)'>普通科技</span>";
+            desc.innerHTML = `<strong>${item.name.replace('<br>', ' ')}</strong> 是 ${typeText}。<br><br><span style="color:#cbd5e1; font-size: 20px;">${item.reason}</span>`;
+            
+            overlay.classList.add('show');
+        }
+
+        function nextQuestion() {
+            document.getElementById('feedback-screen').classList.remove('show');
+            
+            // 舊卡片飛走動畫
+            if(currentCardEl) {
+                currentCardEl.style.transition = 'all 0.4s ease-in';
+                currentCardEl.style.transform = 'translateY(-100vh) rotateZ(45deg) scale(0.5)';
+                currentCardEl.style.opacity = '0';
+            }
+
+            currentIndex++;
+            updateUI();
+            
+            setTimeout(() => {
+                spawnCard();
+            }, 400);
+        }
+
+        function endGame() {
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('end-screen').classList.add('show');
+            // BGM 淡出
+            clearTimeout(timerID);
+        }
+
+        // 初始化背景動畫
+        window.onload = createParticles;
+
+    </script>
+</body>
+</html>
